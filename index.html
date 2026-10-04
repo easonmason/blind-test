@@ -163,7 +163,7 @@ let draws=[],box=null,sel=null,tool=null,pend=[],ch={vis:false,x:0,y:0,t:0,p:0},
 let undoS=[],redoS=[],log=[],t0=0,playT=null,speed=1,result=null,conf=0,tags=new Set(),idc=1,wide=false,isTouch=false;
 try{const s=JSON.parse(localStorage.getItem('replay_v5')||'{}');who=s.who||'';qi=s.qi||0;done=s.done||{};theme=s.theme||'grey';magnet=s.magnet??true}catch(e){}
 function save(){try{localStorage.setItem('replay_v5',JSON.stringify({who,qi,done,theme,magnet}))}catch(e){}}
-function L(a,x){if(!Q)return;if(log.length>=1500)return;log.push([+((Date.now()-t0)/1000).toFixed(1),a,x??'',cur-si,tf])}
+function L(a,x){if(!Q)return;if(log.length>=2500)return;log.push([+((Date.now()-t0)/1000).toFixed(1),a,x??'',cur-si,tf])}
 const $=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,'0');
 const tw=t=>new Date((t+OFF)*1000);
@@ -470,7 +470,7 @@ function finish(){if(!result)return;const b=box&&box.st!=='plan'?box:null;const 
  const N={v:4,note:$('note')?$('note').value:'',skip:result.skipped?1:0,type:b?b.type:null,e:b?b.e:null,sl:b?b.sl:null,tp:b?b.tp:null,e0:b?b.e0:null,sl0:b?b.sl00:null,tp0:b?b.tp0:null,
   fillP:b?b.fillP??null:null,fillAt:b?off(b.fillAt):null,exitP:b?b.exitP??null:null,outAt:b?off(b.outAt):null,how:b?(b.how||b.st):null,orderAt:b?off(b.orderAt):null,
   draws:D,ruleR:Q.rule?Q.rule.r:null,ruleDir:Q.rule?Q.rule.dir:null,ruleAt:Q.rule?(Q.rule.at-M5[si][0])/300:null,startOff:(Q.start-M5[si][0])/300,sec:Math.round((Date.now()-t0)/1000),ua:isTouch?'touch':'mouse',wide:wide?1:0,log};
- let s=JSON.stringify(N);if(s.length>45000){N.log=N.log.filter(x=>x[1]!=='view');s=JSON.stringify(N)}while(s.length>45000&&N.log.length){N.log=N.log.slice(0,Math.floor(N.log.length*0.8));N.cut=1;s=JSON.stringify(N)}
+ let s=JSON.stringify(N);if(s.length>45000){N.log=N.log.filter(x=>x[1]!=='look');N.cutLook=1;s=JSON.stringify(N)}while(s.length>45000&&N.log.length){N.log=N.log.slice(0,Math.floor(N.log.length*0.8));N.cut=1;s=JSON.stringify(N)}
  rec.note=s;done[Q.id]={r:rec.r,up:0,rec};save();upload(Q.id);qi++;save();load()}
 async function upload(id){const d=done[id];if(!d||d.up||!ENDPOINT)return;try{await fetch(ENDPOINT,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(d.rec)});d.up=1;delete d.rec;save()}catch(e){}}
 
@@ -545,6 +545,8 @@ addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==
  if(e.shiftKey&&k==='arrowright'){step(1);e.preventDefault();return}if(k===' '){togglePlay();e.preventDefault()}});
 document.addEventListener('pointerdown',e=>{isTouch=e.pointerType!=='mouse';if(!e.target.closest('#menu,#tfpop,#bot'))closePops()},true);
 
+// 游標停留紀錄：停超過 0.6 秒記一筆（看的價格、看的時間點，相對現在）
+let hoverT=null,hoverN=0;chart.subscribeCrosshairMove(p=>{if(!Q||!p||!p.point||p.time==null||hoverN>=400)return;clearTimeout(hoverT);const pr=cs.coordinateToPrice(p.point.y);const t=p.time-OFF;hoverT=setTimeout(()=>{if(pr==null)return;hoverN++;L('look',[Math.round((t-cursorT())/60),+(((pr/M5[cur][4])-1)*100).toFixed(3)].join('/'))},600)});
 // 縮放、拖動紀錄（停下來 0.8 秒才記一筆）
 let viewT=null,lastView='';ts.subscribeVisibleLogicalRangeChange(r=>{if(!r||!Q||!B.length)return;clearTimeout(viewT);viewT=setTimeout(()=>{const a=Math.round(r.from),b=Math.round(r.to);const s=a+','+b;if(s===lastView)return;lastView=s;
  const tA=B[0][0]+a*tfs,tB=B[0][0]+b*tfs;L('view',[Math.round((tA-cursorT())/60),Math.round((tB-cursorT())/60)].join('/'))},800)});
@@ -559,7 +561,7 @@ async function load(){closePops();if(qi>=order.length){allDone();return}
  cs.applyOptions({priceFormat:{type:'price',precision:dp,minMove:tick}});
  // 起點：訊號前 60–180 分鐘之間（每題固定，但不是每題都同一個間隔）
  const back=60+(hash(id)%25)*5;const st=Q.rule?Q.rule.at-back*60:Q.start;si=Math.max(1,Math.round((st-M5[0][0])/300)-1);cur=si;
- tf=5;draws=[];box=null;sel=null;tool=null;pend=[];ch.vis=false;undoS=[];redoS=[];log=[];t0=Date.now();result=null;conf=0;tags=new Set();noteDraft='';editing=null;lastView='';
+ tf=5;draws=[];box=null;sel=null;tool=null;pend=[];ch.vis=false;undoS=[];redoS=[];log=[];hoverN=0;t0=Date.now();result=null;conf=0;tags=new Set();noteDraft='';editing=null;lastView='';
  if(playT){clearInterval(playT);playT=null}
  fullSet(false);const n=B.length,vis=Math.max(60,Math.min(160,Math.round(paneW()/5)));ts.setVisibleLogicalRange({from:n-vis,to:n+12});
  L('load',id);ui()}
