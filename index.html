@@ -11,7 +11,7 @@ button:disabled{opacity:.35;cursor:default}
 #top{grid-area:top;display:none}#bot{grid-area:bot}#side{grid-area:side}#cw{grid-area:chart;position:relative;overflow:hidden;touch-action:none}
 #chart{position:absolute;inset:0}
 /* 左側畫線工具列 */
-#tools{position:absolute;left:8px;top:74px;z-index:6;background:#1d1d1d;border-radius:10px;padding:4px 0;display:flex;flex-direction:column;align-items:center;max-height:calc(100% - 90px);overflow-y:auto;scrollbar-width:none;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+#tools{position:absolute;left:8px;top:96px;z-index:6;background:#1d1d1d;border-radius:10px;padding:4px 0;display:flex;flex-direction:column;align-items:center;max-height:calc(100% - 90px);overflow-y:auto;scrollbar-width:none;box-shadow:0 2px 10px rgba(0,0,0,.35)}
 #tools::-webkit-scrollbar{display:none}
 #tools .grip{width:44px;height:18px;display:flex;align-items:center;justify-content:center;color:#666;font-size:11px;letter-spacing:2px;cursor:pointer}
 #tools .tb{width:44px;height:40px;display:flex;align-items:center;justify-content:center;color:#d6d6d6;border-radius:6px;position:relative}
@@ -311,6 +311,7 @@ function drawBox(ctx,W,H){const g=boxGeo();if(!g)return;const {x1,x2,yE,yT,yS}=g
  pill(ctx,mid,cx,yE,'rgba(19,23,34,.85)','#fff','c');
  if(sel==='box'&&!closed){handle(ctx,xl,yT,1);handle(ctx,xl,yS,1);if(box.st==='plan'||box.st==='pend')handle(ctx,xl,yE,1);if(box.st==='plan')handle(ctx,xl+w,yE,1)}}
 function drawTop(ctx,W,H){if(!B.length)return;
+ if(Q&&Q.end){const xe=xOf(Q.end-300);if(xe!=null&&xe>0&&xe<W+2){ctx.strokeStyle='#f23645';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);seg(ctx,[xe,0],[xe,H]);ctx.setLineDash([]);ctx.lineWidth=1;pill(ctx,'本題結束 24:00',Math.min(xe-4,W-4),H-14,'#f23645','#fff','r')}}
  if(!hideDraw)for(const d of draws)drawOne(ctx,d,W,H,d.id===sel);
  if(box)drawBox(ctx,W,H);
  if(tool&&ch.vis){// 畫到一半的預覽＋自己的十字線
@@ -452,7 +453,8 @@ function manualClose(){if(!box||box.st!=='open')return;closeTrade(M5[cur][4],'�
 // ---------- 倒帶播放
 function step(n,unit){if(result||!Q)return;if(box&&box.st==='plan')confirmOrder(true);let k=unit==='h'?12:n*(tf/5);const last=M5.length-1;let moved=0;
  for(let i=0;i<k;i++){if(cur>=last)break;cur++;moved++;tickBar(cur);pushBar(M5[cur]);if(box&&box.st==='closed')break}
- if(moved)L('step',unit==='h'?'1h':n+'x'+tf);calcLevels();prim.req();ui();
+ if(moved)L('step',unit==='h'?'1h':n+'x'+tf);
+ if(!warned1h&&box&&(box.st==='open'||box.st==='pend'||box.st==='pendmkt')&&M5.length-1-cur<=12){warned1h=true;if(playT){clearInterval(playT);playT=null}toast('剩 1 小時本題結束：沒出場的單會在 24:00 以收盤價平倉');L('warn1h')}calcLevels();prim.req();ui();
  if(box&&box.st==='closed'){endQ();return}if(cur>=last)atEnd()}
 function togglePlay(){if(playT){clearInterval(playT);playT=null;L('pause');ui();return}if(result)return;L('play',speed);playT=setInterval(()=>{if(result||cur>=M5.length-1){if(playT){clearInterval(playT);playT=null}ui();return}step(1)},Math.round(650/speed));ui()}
 function cycleSpeed(){speed=speed===1?2:speed===2?4:1;if(playT){clearInterval(playT);playT=null;togglePlay()}ui()}
@@ -488,7 +490,7 @@ function renderTop(){const B0=M5[cur];$('top').innerHTML=`<span class="sym">${Q.
  `<button class="tb ${playT?'on':''}" onclick="togglePlay()" ${result?'disabled':''} title="自動播放（空白鍵）">${svg(playT?'pause':'play')}${playT?'暫停':'播放'}</button><button class="tb" onclick="cycleSpeed()">${speed}x</button><span class="sep"></span>`+
  `<button class="tb" onclick="undo()" title="復原（Ctrl+Z）" ${undoS.length?'':'disabled'}>${svg('undo')}</button><button class="tb" onclick="redo()" title="重做" ${redoS.length?'':'disabled'}>${svg('redo')}</button><span class="sep"></span>`+
  `<button class="tb" onclick="skipQ()" ${result||(box&&box.st==='open')?'disabled':''}>這題不做</button><button class="tb" onclick="toggleTheme()">配色：${THEMES[theme].name}</button><button class="tb" onclick="showHelp()">說明</button>`+
- `<span class="grow"></span><span class="clock">${lab(B0[0])}</span><span class="prog">${who}｜第 ${qi+1} / ${order.length} 題</span>`}
+ `<span class="grow"></span><span class="clock">${lab(B0[0])}</span>${result?'':`<span class="clock" style="color:#ff8a80">距結束 ${leftTxt()}</span>`}<span class="prog">${who}｜第 ${qi+1} / ${order.length} 題</span>`}
 function renderBot(){$('bot').innerHTML=`<button class="bb tfb" onclick="togglePop('tfpop')">${tfName(tf)}<small>▾</small></button>`+
  `<button class="bb" onclick="step(1)" ${result?'disabled':''}>${svg('step')}1 根</button><button class="bb" onclick="step(3)" ${result?'disabled':''}>${svg('step')}3 根</button><button class="bb" onclick="step(1,'h')" ${result?'disabled':''}>${svg('step')}1 小時</button>`+
  `<button class="bb ${playT?'on':''}" onclick="togglePlay()" ${result?'disabled':''}>${svg(playT?'pause':'play')}${playT?'暫停':'播放 '+speed+'x'}</button>`+
@@ -496,8 +498,9 @@ function renderBot(){$('bot').innerHTML=`<button class="bb tfb" onclick="toggleP
  $('tfpop').innerHTML=TFS.map(([n,s])=>`<button class="${tf===n?'on':''}" onclick="setTF(${n})">${s}</button>`).join('');
  $('menu').innerHTML=`<div class="info">${who}｜第 ${qi+1} / ${order.length} 題</div><button onclick="closePops();redo()">重做</button><button onclick="closePops();cycleSpeed()">播放速度：${speed}x</button><button onclick="closePops();skipQ()" ${result||(box&&box.st==='open')?'disabled':''}>這題不做</button><button onclick="closePops();toggleTheme()">配色：${THEMES[theme].name}</button><button onclick="closePops();showHelp()">操作說明</button>`}
 function togglePop(id){const e=$(id);const on=e.style.display==='block';closePops();if(!on)e.style.display='block'}
+const leftTxt=()=>{const m=Math.max(0,Math.round((Q.end-300-M5[cur][0])/60));return m>=60?`${Math.floor(m/60)} 小時 ${m%60} 分`:`${m} 分`};
 function renderLegend(){const b=B[B.length-1];if(!b)return;const T=THEMES[theme];const c=b[4]>=b[1]?(theme==='grey'?'#1f3fae':'#089981'):(theme==='grey'?'#000':'#f23645');
- $('legend').innerHTML=`<div class="s">${Q.sym}USDT.P<small>${tfName(tf)}</small></div>`+(wide?`<div class="ohlc">開 <b style="color:${c}">${fmt(b[1])}</b>　高 <b style="color:${c}">${fmt(b[2])}</b>　低 <b style="color:${c}">${fmt(b[3])}</b>　收 <b style="color:${c}">${fmt(b[4])}</b></div>`:`<div class="p">${fmt(M5[cur][4])}</div><div class="c">${lab(M5[cur][0])}</div>`)}
+ $('legend').innerHTML=`<div class="s">${Q.sym}USDT.P<small>${tfName(tf)}</small></div>`+(wide?`<div class="ohlc">開 <b style="color:${c}">${fmt(b[1])}</b>　高 <b style="color:${c}">${fmt(b[2])}</b>　低 <b style="color:${c}">${fmt(b[3])}</b>　收 <b style="color:${c}">${fmt(b[4])}</b></div>`:`<div class="p">${fmt(M5[cur][4])}</div><div class="c">${lab(M5[cur][0])}</div>`)+(result?'':`<div class="c" style="color:#c2185b;font-weight:600">距本題結束（24:00）還有 ${leftTxt()}</div>`)}
 function renderDrawbar(){const el=$('drawbar');let h='';
  if(tool){const T=TD[tool];const n=T.n,k=pend.length+1;const what=tool==='long'||tool==='short'?'進場價':(n===1?'位置':(k===1?'第一個點':'第二個點'));
   h=`<span class="stepn">${k}/${n}</span><span class="msg">${isTouch?'拖動移動十字線，點一下設定':'點擊設定'}${what}</span><button class="ib" onclick="exitTool()" title="取消">${svg('trash')}</button>`}
@@ -522,13 +525,14 @@ function ticketHTML(){if(!box)return '';const b=box,S=boxStats();const d=b.dir>0
 function resultHTML(){if(!result)return '';const b=box;let m;
  if(!b||b.st==='plan')m=result.skipped?'你選擇<b>這題不做</b>。':'到 24:00 都<b>沒有下單</b>，這題算不做。';
  else if(b.st==='nofill')m=result.skipped?'你取消並跳過這題。':`掛單 ${fmt(b.e)} <b>沒有成交</b>，這題算 0R。`;
- else m=`你${b.dir>0?'做多':'做空'}，${b.how}，結果 <span class="big ${b.R>=0?'up':'dn'}">${sgn(b.R.toFixed(2))}R</span>（含手續費）`;
+ else{m=`你${b.dir>0?'做多':'做空'}，${b.how}，結果 <span class="big ${b.R>=0?'up':'dn'}">${sgn(b.R.toFixed(2))}R</span>（含手續費）`;
+  if(b.how&&b.how.startsWith('24:00'))m+=`<div class="hint" style="margin-top:4px">本題時間到（台北 24:00），以收盤價 ${fmt(b.exitP)} 平倉；價格沒有碰到停損 ${fmt(b.sl)}，也沒有碰到目標 ${fmt(b.tp)}。</div>`}
  return `<div class="card">${wide?'':`<div class="handle" onclick="sheetCol=!sheetCol;ui()">${sheetCol?'▲ 展開作答':'▼ 收合，看圖'}</div>`}<div class="res">${m}</div><div class="hint">圖上已揭曉當天剩下的走勢，可以縮放查看。</div><div class="more">
  <h3 style="margin-top:12px">這題你的把握程度</h3><div class="pick">${[1,2,3,4,5].map(v=>`<button class="${conf===v?'on':''}" onclick="conf=${v};ui()">${v}</button>`).join('')}</div>
  <h3>判斷理由（可複選）</h3><div class="pick">${TAGS.map(v=>`<button class="${tags.has(v)?'on':''}" onclick="tagT('${v}')">${v}</button>`).join('')}</div>
  <textarea id="note" rows="2" placeholder="一句話：你看到什麼、為什麼這樣做（選填）">${noteDraft}</textarea>
  </div><div class="row"><button class="btn gold" onclick="finish()">送出並下一題 →</button></div></div>`}
-let noteDraft='',sheetCol=false;function tagT(v){noteDraft=$('note')?$('note').value:noteDraft;tags.has(v)?tags.delete(v):tags.add(v);ui()}
+let noteDraft='',sheetCol=false,warned1h=false;function tagT(v){noteDraft=$('note')?$('note').value:noteDraft;tags.has(v)?tags.delete(v):tags.add(v);ui()}
 function renderSide(){if($('note'))noteDraft=$('note').value;
  const q=wide?`<div class="card qinfo"><h3>第 ${qi+1} / ${order.length} 題　${who}</h3><div class="hint">${result?'這題結束':'看完圖再決定。按左邊 <b>L</b> 做多、<b>S</b> 做空，點進場價拉出部位框，拉好就是訂單：到價自動成交、到目標或停損自動平倉。也可以整題不做。'}</div></div>`:'';
  const tips=wide&&!result?`<div class="card tips"><h3>快捷鍵</h3><div class="hint">Shift+→ 前進 1 根　空白鍵 播放<br>Alt+T 趨勢線　Alt+H 水平線　Alt+J 水平射線<br>Alt+F 斐波那契　Alt+V 垂直線<br>Delete 刪除選取　Ctrl+Z 復原　Esc 取消</div></div>`:'';
@@ -562,7 +566,7 @@ async function load(){closePops();if(qi>=order.length){allDone();return}
  cs.applyOptions({priceFormat:{type:'price',precision:dp,minMove:tick}});
  // 起點：訊號前 60–180 分鐘之間（每題固定，但不是每題都同一個間隔）
  const back=60+(hash(id)%25)*5;const st=Q.rule?Q.rule.at-back*60:Q.start;si=Math.max(1,Math.round((st-M5[0][0])/300)-1);cur=si;
- tf=5;draws=[];box=null;sel=null;tool=null;pend=[];ch.vis=false;undoS=[];redoS=[];log=[];hoverN=0;t0=Date.now();result=null;conf=0;tags=new Set();noteDraft='';editing=null;lastView='';
+ tf=5;draws=[];box=null;sel=null;tool=null;pend=[];ch.vis=false;undoS=[];redoS=[];log=[];hoverN=0;t0=Date.now();result=null;conf=0;tags=new Set();noteDraft='';editing=null;lastView='';warned1h=false;
  if(playT){clearInterval(playT);playT=null}
  fullSet(false);const n=B.length,vis=Math.max(60,Math.min(160,Math.round(paneW()/5)));ts.setVisibleLogicalRange({from:n-vis,to:n+12});
  L('load',id);ui()}
