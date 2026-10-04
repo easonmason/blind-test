@@ -161,8 +161,8 @@ let who='',order=[],qi=0,done={},theme='grey';
 let Q=null,M5=[],H1=[],D1=[],cur=0,si=0,tf=5,tfs=300,B=[],LV=[],dp=2,tick=0.01;
 let draws=[],box=null,sel=null,tool=null,pend=[],ch={vis:false,x:0,y:0,t:0,p:0},magnet=true,hideDraw=false;
 let undoS=[],redoS=[],log=[],t0=0,playT=null,speed=1,result=null,conf=0,tags=new Set(),idc=1,wide=false,isTouch=false;
-try{const s=JSON.parse(localStorage.getItem('replay_v4')||'{}');who=s.who||'';qi=s.qi||0;done=s.done||{};theme=s.theme||'grey';magnet=s.magnet??true}catch(e){}
-function save(){try{localStorage.setItem('replay_v4',JSON.stringify({who,qi,done,theme,magnet}))}catch(e){}}
+try{const s=JSON.parse(localStorage.getItem('replay_v5')||'{}');who=s.who||'';qi=s.qi||0;done=s.done||{};theme=s.theme||'grey';magnet=s.magnet??true}catch(e){}
+function save(){try{localStorage.setItem('replay_v5',JSON.stringify({who,qi,done,theme,magnet}))}catch(e){}}
 function L(a,x){if(!Q)return;if(log.length>=1500)return;log.push([+((Date.now()-t0)/1000).toFixed(1),a,x??'',cur-si,tf])}
 const $=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,'0');
@@ -469,7 +469,7 @@ function finish(){if(!result)return;const b=box&&box.st!=='plan'?box:null;const 
  const D=draws.map(d=>[d.k,ptsStr(d),d.col,d.txt||'']);
  const N={v:4,note:$('note')?$('note').value:'',skip:result.skipped?1:0,type:b?b.type:null,e:b?b.e:null,sl:b?b.sl:null,tp:b?b.tp:null,e0:b?b.e0:null,sl0:b?b.sl00:null,tp0:b?b.tp0:null,
   fillP:b?b.fillP??null:null,fillAt:b?off(b.fillAt):null,exitP:b?b.exitP??null:null,outAt:b?off(b.outAt):null,how:b?(b.how||b.st):null,orderAt:b?off(b.orderAt):null,
-  draws:D,ruleR:Q.rule.r,ruleDir:Q.rule.dir,ruleAt:(Q.rule.at-M5[si][0])/300,startOff:(Q.start-M5[si][0])/300,sec:Math.round((Date.now()-t0)/1000),ua:isTouch?'touch':'mouse',wide:wide?1:0,log};
+  draws:D,ruleR:Q.rule?Q.rule.r:null,ruleDir:Q.rule?Q.rule.dir:null,ruleAt:Q.rule?(Q.rule.at-M5[si][0])/300:null,startOff:(Q.start-M5[si][0])/300,sec:Math.round((Date.now()-t0)/1000),ua:isTouch?'touch':'mouse',wide:wide?1:0,log};
  let s=JSON.stringify(N);if(s.length>45000){N.log=N.log.filter(x=>x[1]!=='view');s=JSON.stringify(N)}while(s.length>45000&&N.log.length){N.log=N.log.slice(0,Math.floor(N.log.length*0.8));N.cut=1;s=JSON.stringify(N)}
  rec.note=s;done[Q.id]={r:rec.r,up:0,rec};save();upload(Q.id);qi++;save();load()}
 async function upload(id){const d=done[id];if(!d||d.up||!ENDPOINT)return;try{await fetch(ENDPOINT,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(d.rec)});d.up=1;delete d.rec;save()}catch(e){}}
@@ -554,11 +554,11 @@ const cols=(c,step)=>{if(!c)return [];const a=new Array(c.n);for(let i=0;i<c.n;i
 function hash(s){let v=7;for(const ch of s)v=(v*31+ch.charCodeAt(0))%1000003;return v}
 async function load(){closePops();if(qi>=order.length){allDone();return}
  const id=order[qi];$('legend').innerHTML='<div class="s">載入中…</div>';
- try{Q=await fetch('d4/'+id+'.json').then(r=>r.json())}catch(e){toast('載入失敗，請檢查網路後重新整理');return}
+ try{Q=await fetch('d5/'+id+'.json').then(r=>r.json())}catch(e){toast('載入失敗，請檢查網路後重新整理');return}
  M5=cols(Q.m5,300);H1=cols(Q.h1,3600);D1=cols(Q.d1,86400);histCache={};dp=Q.dp;tick=dp===1?0.1:0.01;
  cs.applyOptions({priceFormat:{type:'price',precision:dp,minMove:tick}});
  // 起點：訊號前 60–180 分鐘之間（每題固定，但不是每題都同一個間隔）
- const back=60+(hash(id)%25)*5;const st=Q.rule.at-back*60;si=Math.max(1,Math.round((st-M5[0][0])/300)-1);cur=si;
+ const back=60+(hash(id)%25)*5;const st=Q.rule?Q.rule.at-back*60:Q.start;si=Math.max(1,Math.round((st-M5[0][0])/300)-1);cur=si;
  tf=5;draws=[];box=null;sel=null;tool=null;pend=[];ch.vis=false;undoS=[];redoS=[];log=[];t0=Date.now();result=null;conf=0;tags=new Set();noteDraft='';editing=null;lastView='';
  if(playT){clearInterval(playT);playT=null}
  fullSet(false);const n=B.length,vis=Math.max(60,Math.min(160,Math.round(paneW()/5)));ts.setVisibleLogicalRange({from:n-vis,to:n+12});
@@ -566,6 +566,6 @@ async function load(){closePops();if(qi>=order.length){allDone();return}
 function allDone(){const v=Object.values(done);const n=v.length,tot=v.reduce((a,b)=>a+(b.r||0),0);$('side').classList.remove('hide');
  $('side').innerHTML=`<div class="card"><div class="res"><b>全部做完了，謝謝！</b><br>共 ${n} 題，你的總結果 ${sgn(tot.toFixed(2))}R。作答已自動回傳。</div></div>`}
 function startGo(){const v=$('whoin').value.trim();if(!v&&!who){$('whoin').style.borderColor='#f23645';return}if(v)who=v;save();$('modal').style.display='none';if(!Q)boot();else ui()}
-async function boot(){const ids=await fetch('d4/index.json').then(r=>r.json());order=ids.slice().sort((a,b)=>hash(a)-hash(b));Object.keys(done).forEach(upload);load()}
+async function boot(){const ids=await fetch('d5/index.json').then(r=>r.json());order=ids.slice().sort((a,b)=>hash(a)-hash(b));Object.keys(done).forEach(upload);load()}
 layout();applyTheme();if(who)$('whoin').value=who;
 </script></body></html>
