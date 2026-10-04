@@ -107,7 +107,7 @@ body.wide.short #side{width:250px}body.wide.short .tips{display:none}
 <ol>
 <li><b>開盤價線</b>已自動畫好：<span style="color:#f23645">M 月開</span>、<span style="color:#ff9800">W 週開</span>、<span style="color:#4caf50">D 日開</span>、<span style="color:#5b8cff">4H</span>、<span style="color:#c06bd6">H 小時開</span>。</li>
 <li><b>畫線</b>：左邊工具列選工具 → 手機上拖動移動十字線、點一下設定點；電腦直接點。畫好的線點一下可選取、拖曳修改或刪除。</li>
-<li><b>下單</b>：按 <b>L</b>（做多）或 <b>S</b>（做空），在圖上點進場價，會出現部位框；拖動上下把手調整停損、目標，確認後按「確認下單」。進場價貼近現價＝市價，離開現價＝掛單，到價才成交。</li>
+<li><b>下單</b>：按 <b>L</b>（做多）或 <b>S</b>（做空），在圖上點進場價，會出現部位框；拖動上下把手調整停損、目標，<b>拉好就是訂單</b>：按播放後生效，價格到進場價自動成交，到目標或停損自動平倉。進場價貼近現價＝市價，離開現價＝掛單。</li>
 <li>下單後繼續播放看結果；可移動停損／目標、手動平倉。到 24:00 還沒出場就以收盤平倉。結果含手續費（來回 0.07%）。</li>
 <li>每題自己判斷，不要跟別人討論；認得是哪天的行情就按「這題不做」並註明。</li>
 </ol>
@@ -375,14 +375,14 @@ function endPtr(e,cancel){const [x,y]=rel(e);
   if(!cancel){if(e.pointerType==='mouse')confirmPt();else if(tstart&&tstart.mv<8&&Date.now()-tstart.tm<600)confirmPt()}
   tstart=null;return}
  if(drag&&e.pointerId===activeId){activeId=null;const d=drag;drag=null;
-  if(d.moved){undoS.push(d.before);redoS=[];if(d.id==='box'){L('box-edit',[d.h,box.e,box.sl,box.tp].join('/'))}else{const z=draws.find(q=>q.id===d.id);if(z)L('edit',[z.k,z.id,ptsStr(z)].join('|'))}}
+  if(d.moved){undoS.push(d.before);redoS=[];if(d.id==='box'){if(box.st==='pend'&&(d.h==='e'||d.h==='body'))box.type=typeOf(box,M5[cur][4]);L('box-edit',[d.h,box.e,box.sl,box.tp,box.st].join('/'))}else{const z=draws.find(q=>q.id===d.id);if(z)L('edit',[z.k,z.id,ptsStr(z)].join('|'))}}
   ui();prim.req()}
  activeId=null}
 cw.addEventListener('pointerup',e=>endPtr(e,false),{capture:true});cw.addEventListener('pointercancel',e=>endPtr(e,true),{capture:true});
 function doDrag(x,y){const d=drag;const dl=Math.round((ts.coordinateToLogical(x)??d.l0)-d.l0);const p=pOfY(y);if(p==null)return;const dP=p-d.p0;
  if(Math.abs(x-d.x0)+Math.abs(y-d.y0)>2)d.moved=true;if(!d.moved)return;
  if(d.id==='box'){const o=d.orig;const b=box;const sp=snap(x,y);
-  if(d.h==='body'){if(b.st!=='plan')return;b.e=rp(o.e+dP);b.tp=rp(o.tp+dP);b.sl=rp(o.sl+dP);b.t1=o.t1+dl*tfs;b.t2=o.t2+dl*tfs}
+  if(d.h==='body'){if(b.st!=='plan'&&b.st!=='pend')return;b.e=rp(o.e+dP);b.tp=rp(o.tp+dP);b.sl=rp(o.sl+dP);b.t1=o.t1+dl*tfs;b.t2=o.t2+dl*tfs}
   else if(d.h==='tp'){b.tp=rp(sp.p)}else if(d.h==='sl'){b.sl=rp(sp.p)}
   else if(d.h==='e'){b.e=rp(sp.p);if(b.st==='plan'){const w=o.t2-o.t1;b.t1=o.t1+dl*tfs;b.t2=b.t1+w}}
   else if(d.h==='w'){b.t2=Math.max(b.t1+tfs,o.t2+dl*tfs)}
@@ -430,10 +430,11 @@ function undo(){if(!undoS.length)return;redoS.push(snapState());restore(undoS.po
 function redo(){if(!redoS.length)return;undoS.push(snapState());restore(redoS.pop());L('redo');ui();prim.req()}
 
 // ---------- 下單與成交
-function confirmOrder(){if(!box||box.st!=='plan'||result)return;const c=M5[cur][4];const b=box;
- b.type=Math.abs(b.e-c)/c<0.0005?'mkt':(b.dir>0?(b.e<c?'limit':'stop'):(b.e>c?'limit':'stop'));
+const typeOf=(b,c)=>Math.abs(b.e-c)/c<0.0005?'mkt':(b.dir>0?(b.e<c?'limit':'stop'):(b.e>c?'limit':'stop'));
+function confirmOrder(silent){if(!box||box.st!=='plan'||result)return;const c=M5[cur][4];const b=box;
+ b.type=typeOf(b,c);
  const w=b.t2-b.t1;b.t1=cursorT();b.t2=b.t1+Math.max(w,tfs*6);b.st=b.type==='mkt'?'pendmkt':'pend';b.orderAt=cur;b.e0=b.e;b.sl00=b.sl;b.tp0=b.tp;
- L('order',[b.dir,b.type,b.e,b.sl,b.tp].join('/'));toast(b.type==='mkt'?'市價單：下一根開盤成交':'掛單已送出，到價才成交');ui();prim.req()}
+ L('order',[b.dir,b.type,b.e,b.sl,b.tp].join('/'));if(!silent)toast(b.type==='mkt'?'市價單：下一根開盤成交':'掛單生效，到價自動成交');ui();prim.req()}
 function cancelOrder(){if(!box||!(box.st==='pend'||box.st==='pendmkt'))return;L('cancel');box=null;sel=null;toast('已取消掛單');ui();prim.req()}
 function closeTrade(px,how,t){const b=box;b.exitP=px;b.exitT=t;b.how=how;const risk=Math.abs(b.fillP-b.sl0);b.R=b.dir*(px-b.fillP)/risk-FEE*b.fillP/risk;b.st='closed';b.outAt=cur;L('exit',[how,px,b.R.toFixed(3)].join('/'))}
 function tickBar(i){const b=box;if(!b)return;const [t,o,h,l,c]=M5[i];
@@ -449,7 +450,7 @@ function tickBar(i){const b=box;if(!b)return;const [t,o,h,l,c]=M5[i];
 function manualClose(){if(!box||box.st!=='open')return;closeTrade(M5[cur][4],'手動平倉',M5[cur][0]);L('mclose');endQ()}
 
 // ---------- 倒帶播放
-function step(n,unit){if(result||!Q)return;let k=unit==='h'?12:n*(tf/5);const last=M5.length-1;let moved=0;
+function step(n,unit){if(result||!Q)return;if(box&&box.st==='plan')confirmOrder(true);let k=unit==='h'?12:n*(tf/5);const last=M5.length-1;let moved=0;
  for(let i=0;i<k;i++){if(cur>=last)break;cur++;moved++;tickBar(cur);pushBar(M5[cur]);if(box&&box.st==='closed')break}
  if(moved)L('step',unit==='h'?'1h':n+'x'+tf);calcLevels();prim.req();ui();
  if(box&&box.st==='closed'){endQ();return}if(cur>=last)atEnd()}
@@ -501,19 +502,19 @@ function renderDrawbar(){const el=$('drawbar');let h='';
  if(tool){const T=TD[tool];const n=T.n,k=pend.length+1;const what=tool==='long'||tool==='short'?'進場價':(n===1?'位置':(k===1?'第一個點':'第二個點'));
   h=`<span class="stepn">${k}/${n}</span><span class="msg">${isTouch?'拖動移動十字線，點一下設定':'點擊設定'}${what}</span><button class="ib" onclick="exitTool()" title="取消">${svg('trash')}</button>`}
  else if(editing){h=`<input id="txtin" placeholder="輸入文字" onkeydown="if(event.key==='Enter')okText()"><button class="tbtn" onclick="okText()">確定</button>`}
- else if(sel==='box'&&box){h=`<span class="msg">${box.st==='plan'?'拖動上下把手調整停損／目標，左側中間調整進場':box.st==='open'?'持倉中：可拖動停損／目標':'掛單中：可拖動進場／停損／目標'}</span>`+(box.st==='plan'||box.st==='pend'?`<button class="ib" onclick="delSel()" title="${box.st==='plan'?'刪除部位框':'取消掛單'}">${svg('trash')}</button>`:'')+`<button class="ib" onclick="sel=null;ui();prim.req()">${svg('x')}</button>`}
+ else if(sel==='box'&&box){h=`<span class="msg">${box.st==='plan'?'拉好就是訂單，按播放生效；拖把手可調整':box.st==='open'?'持倉中：可拖動停損／目標':'掛單中：可拖動進場／停損／目標'}</span>`+(box.st==='plan'||box.st==='pend'?`<button class="ib" onclick="delSel()" title="${box.st==='plan'?'刪除部位框':'取消掛單'}">${svg('trash')}</button>`:'')+`<button class="ib" onclick="sel=null;ui();prim.req()">${svg('x')}</button>`}
  else if(sel!=null){const z=draws.find(d=>d.id===sel);if(z){h=COLORS.map(c=>`<span class="sw ${z.col===c?'on':''}" style="background:${c}" onclick="setCol('${c}')"></span>`).join('')+
   (z.k!=='text'?`<button class="ib" onclick="setW()" title="線寬">${svg('width')}</button>`:`<button class="ib" onclick="editText(draws.find(d=>d.id===sel))" title="改文字">${svg('pen')}</button>`)+`<button class="ib" onclick="delSel()" title="刪除（Delete）">${svg('trash')}</button>`}}
  el.innerHTML=h;el.style.display=h?'flex':'none'}
 function ticketHTML(){if(!box)return '';const b=box,S=boxStats();const d=b.dir>0;const head=`<b class="${d?'up':'dn'}">${d?'做多':'做空'}</b>`;
  if(!wide){const line=`<div class="hint" style="margin-top:4px">進 <b>${fmt(b.fillP??b.e)}</b>　損 <b class="dn">${fmt(b.sl)}</b> ${S.sp.toFixed(2)}%　標 <b class="up">${fmt(b.tp)}</b> ${S.tpP.toFixed(2)}%　比 <b>${S.rr.toFixed(2)}</b>　費 ${S.feeR.toFixed(2)}R</div>`;
-  let t='',btn='';if(b.st==='plan'){t='部位計畫';btn=`<button class="btn" style="height:34px" onclick="sel='box';delSel()">刪除</button><button class="btn ${d?'buy':'sell'}" style="height:34px" onclick="confirmOrder()">確認下單</button>`}
+  let t='',btn='';if(b.st==='plan'){t='訂單・按播放生效';btn=`<button class="btn" style="height:34px" onclick="sel='box';delSel()">刪除</button>`}
   else if(b.st==='pend'||b.st==='pendmkt'){t=b.st==='pendmkt'?'市價單':'掛單中';btn=`<button class="btn" style="height:34px" onclick="cancelOrder()">取消掛單</button>`}
   else if(b.st==='open'){const c=M5[cur][4];const risk=Math.abs(b.fillP-b.sl0);const r=b.dir*(c-b.fillP)/risk-FEE*b.fillP/risk;t=`持倉中 <b class="${r>=0?'up':'dn'}">${sgn(r.toFixed(2))}R</b>`;btn=`<button class="btn" style="height:34px" onclick="manualClose()">市價平倉</button>`}
   else return '';
   return `<div class="card" style="padding:8px 12px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;font-size:14px">${head}　${t}</div>${btn}</div>${line}</div>`}
  const kv=`<div class="kv"><span>進場</span><b>${fmt(b.fillP??b.e)}${b.fillP!=null?'（已成交）':''}</b><span>停損</span><b class="dn">${fmt(b.sl)}　${S.sp.toFixed(2)}%</b><span>目標</span><b class="up">${fmt(b.tp)}　${S.tpP.toFixed(2)}%</b><span>風險/報酬比</span><b>${S.rr.toFixed(2)}</b><span>手續費約</span><b>${S.feeR.toFixed(2)}R</b></div>`;
- if(b.st==='plan')return `<div class="card"><h3>${head}　部位計畫（還沒下單）</h3>${kv}<div class="row"><button class="btn" onclick="sel='box';delSel()">刪除</button><button class="btn ${d?'buy':'sell'}" onclick="confirmOrder()">確認下單</button></div>${wide?'':'<div class="hint" style="margin-top:6px">拖動框的上下把手調整停損／目標</div>'}</div>`;
+ if(b.st==='plan')return `<div class="card"><h3>${head}　訂單（按播放就生效）</h3>${kv}<div class="hint" style="margin-top:6px">價格到進場價自動成交，到目標或停損自動平倉。</div><div class="row"><button class="btn" onclick="sel='box';delSel()">刪除</button></div></div>`;
  if(b.st==='pend'||b.st==='pendmkt')return `<div class="card"><h3>${head}　${b.st==='pendmkt'?'市價單（下一根開盤成交）':'掛單中（'+(b.type==='limit'?'限價':'突破')+'）'}</h3>${kv}<div class="row"><button class="btn" onclick="cancelOrder()">取消掛單</button></div></div>`;
  if(b.st==='open'){const c=M5[cur][4];const risk=Math.abs(b.fillP-b.sl0);const r=b.dir*(c-b.fillP)/risk-FEE*b.fillP/risk;
   return `<div class="card"><h3>${head}　持倉中　<b class="${r>=0?'up':'dn'}">${sgn(r.toFixed(2))}R</b></h3>${kv}<div class="row"><button class="btn" onclick="manualClose()">市價平倉</button></div></div>`}
@@ -529,7 +530,7 @@ function resultHTML(){if(!result)return '';const b=box;let m;
  </div><div class="row"><button class="btn gold" onclick="finish()">送出並下一題 →</button></div></div>`}
 let noteDraft='',sheetCol=false;function tagT(v){noteDraft=$('note')?$('note').value:noteDraft;tags.has(v)?tags.delete(v):tags.add(v);ui()}
 function renderSide(){if($('note'))noteDraft=$('note').value;
- const q=wide?`<div class="card qinfo"><h3>第 ${qi+1} / ${order.length} 題　${who}</h3><div class="hint">${result?'這題結束':'看完圖再決定。按左邊 <b>L</b> 做多、<b>S</b> 做空，點進場價拉出部位框，調好按「確認下單」；也可以整題不做。'}</div></div>`:'';
+ const q=wide?`<div class="card qinfo"><h3>第 ${qi+1} / ${order.length} 題　${who}</h3><div class="hint">${result?'這題結束':'看完圖再決定。按左邊 <b>L</b> 做多、<b>S</b> 做空，點進場價拉出部位框，拉好就是訂單：到價自動成交、到目標或停損自動平倉。也可以整題不做。'}</div></div>`:'';
  const tips=wide&&!result?`<div class="card tips"><h3>快捷鍵</h3><div class="hint">Shift+→ 前進 1 根　空白鍵 播放<br>Alt+T 趨勢線　Alt+H 水平線　Alt+J 水平射線<br>Alt+F 斐波那契　Alt+V 垂直線<br>Delete 刪除選取　Ctrl+Z 復原　Esc 取消</div></div>`:'';
  const html=q+(result?resultHTML():ticketHTML())+tips;const s=$('side');s.innerHTML=html;s.classList.toggle('hide',!html);s.classList.toggle('col',!!(result&&sheetCol&&!wide))}
 function ui(){if(!Q)return;renderTools();if(wide)renderTop();else renderBot();renderLegend();renderDrawbar();renderSide()}
