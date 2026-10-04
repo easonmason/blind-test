@@ -1,0 +1,21 @@
+name: fetch-klines
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 1 * * *'
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/fetch_klines.py BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,LTCUSDT 2021-01
+      - name: push to data branch
+        run: |
+          git config user.name bot; git config user.email bot@users.noreply.github.com
+          git checkout --orphan data-tmp
+          git rm -rfq --cached . >/dev/null
+          git add -f klines/*.gz
+          git commit -qm "klines $(date -u +%F)"
+          git push -f origin data-tmp:data
