@@ -1,0 +1,66 @@
+name: kronos-eval
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        coin: [BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT, DOGEUSDT, ADAUSDT, LINKUSDT, AVAXUSDT, LTCUSDT]
+    steps:
+      - uses: actions/checkout@v4
+      - name: data
+        run: |
+          git fetch --depth 1 origin data
+          git checkout origin/data -- klines/${{ matrix.coin }}_5m.csv.gz metrics/${{ matrix.coin }}_metrics.csv.gz
+      - name: kronos code (pinned commit, read-only use of model/)
+        run: |
+          git clone https://github.com/shiyu-coder/Kronos kronos_src
+          git -C kronos_src checkout 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+      - name: deps (CPU torch + pinned)
+        run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q einops==0.8.1 huggingface_hub==0.33.1 safetensors==0.6.2 pandas==2.2.2 tqdm==4.67.1
+      - name: security gate (weights must be safetensors only, no code files)
+        run: |
+          python3 - <<'EOF'
+          from huggingface_hub import HfApi
+          import os
+          ok = {'config.json', 'model.safetensors', 'README.md', '.gitattributes'}
+          env = open(os.environ['GITHUB_ENV'], 'a')
+          for repo, key in [('NeoQuasar/Kronos-small', 'MDL_REV'), ('NeoQuasar/Kronos-Tokenizer-base', 'TOK_REV')]:
+              info = HfApi().model_info(repo, files_metadata=True)
+              names = {s.rfilename for s in info.siblings}
+              print(repo, info.sha, sorted(names), [(s.rfilename, s.size) for s in info.siblings])
+              bad = names - ok
+              assert not bad, f'unexpected files in {repo}: {bad}'
+              assert 'model.safetensors' in names, f'no safetensors in {repo}'
+              env.write(f'{key}={info.sha}\n')
+          EOF
+      - name: run
+        run: python3 tools/kronos_eval.py ${{ matrix.coin }} --kronos kronos_src --out kronos_out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kronos-${{ matrix.coin }}
+          path: kronos_out/
+  report:
+    needs: eval
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kronos-*
+          path: kronos_out
+          merge-multiple: true
+      - run: pip install -q pandas numpy && python3 tools/kronos_report.py kronos_out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kronos-summary
+          path: kronos_out/
