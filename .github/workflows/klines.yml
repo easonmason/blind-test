@@ -13,6 +13,12 @@ jobs:
       - run: python3 tools/fetch_klines.py BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,LTCUSDT 2021-01
       - run: python3 tools/fetch_metrics.py BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,LTCUSDT 2021-12-01
       - run: pip install pandas numpy -q && python3 tools/paper.py
+      - name: guard - data must be fresh (else do not overwrite data branch)
+        run: |
+          python3 -c "
+          import pandas as pd,glob,sys
+          lag=[(f,(pd.Timestamp.utcnow().tz_localize(None)-pd.to_datetime(pd.read_csv(f).open_time.max(),unit='ms')).days) for f in glob.glob('klines/*.gz')]
+          bad=[x for x in lag if x[1]>3]; print(lag); sys.exit('stale klines: '+str(bad) if bad else 0)"
       - name: annotate paper trades with Kronos opinion (record only)
         continue-on-error: true
         run: |
