@@ -5,19 +5,22 @@ COST = 0.001
 R = pd.concat([pd.read_csv(f).assign(coin=f.split('/')[-1][:-4]) for f in sorted(glob.glob(f'{d}/*.csv'))])
 L = ['# Kronos-small 保留期實測（2025-01 ~ 2026-09，零樣本）', '']
 t1 = R[R.test == 'T1'].copy()
-t1['dir'] = np.sign(t1.pred); t1['pnl'] = t1.dir * t1.real - COST
-tt = lambda x: x.mean() / (x.std(ddof=1) / np.sqrt(len(x))) if len(x) > 2 else np.nan
-ic = t1[['pred', 'real']].corr('spearman').iloc[0, 1]
-byc = t1.groupby('coin').pnl.mean()
-hit = (np.sign(t1.pred) == np.sign(t1.real)).mean()
-L += ['## T1 單獨用（照預測方向做，持 1 小時，扣 0.10%）',
-      f'- 樣本 {len(t1)}；方向命中率 {hit*100:.1f}%；Spearman IC {ic:+.4f}',
-      f'- 每筆平均 {t1.pnl.mean()*100:+.3f}%（t {tt(t1.pnl):.2f}）；為正的幣 {(byc>0).sum()}/{len(byc)}',
-      f'- 不扣成本平均 {(t1.pnl+COST).mean()*100:+.3f}%']
-q = t1.pred.abs().quantile(0.8); top = t1[t1.pred.abs() >= q]
-L += [f'- 參考（非登錄標準）：預測幅度前 20% 的 {len(top)} 筆，每筆 {top.pnl.mean()*100:+.3f}%（t {tt(top.pnl):.2f}）']
-p1 = t1.pnl.mean() > 0 and tt(t1.pnl) >= 2 and (byc > 0).sum() >= 6
-L += [f'- **判定：{"過關" if p1 else "未過"}**', '']
+if len(t1) == 0: t1 = None
+if t1 is not None:
+    t1['dir'] = np.sign(t1.pred); t1['pnl'] = t1.dir * t1.real - COST
+    tt = lambda x: x.mean() / (x.std(ddof=1) / np.sqrt(len(x))) if len(x) > 2 else np.nan
+    ic = t1[['pred', 'real']].corr('spearman').iloc[0, 1]
+    byc = t1.groupby('coin').pnl.mean()
+    hit = (np.sign(t1.pred) == np.sign(t1.real)).mean()
+    L += ['## T1 單獨用（照預測方向做，持 1 小時，扣 0.10%）',
+          f'- 樣本 {len(t1)}；方向命中率 {hit*100:.1f}%；Spearman IC {ic:+.4f}',
+          f'- 每筆平均 {t1.pnl.mean()*100:+.3f}%（t {tt(t1.pnl):.2f}）；為正的幣 {(byc>0).sum()}/{len(byc)}',
+          f'- 不扣成本平均 {(t1.pnl+COST).mean()*100:+.3f}%']
+    q = t1.pred.abs().quantile(0.8); top = t1[t1.pred.abs() >= q]
+    L += [f'- 參考（非登錄標準）：預測幅度前 20% 的 {len(top)} 筆，每筆 {top.pnl.mean()*100:+.3f}%（t {tt(top.pnl):.2f}）']
+    p1 = t1.pnl.mean() > 0 and tt(t1.pnl) >= 2 and (byc > 0).sum() >= 6
+    L += [f'- **判定：{"過關" if p1 else "未過"}**', '']
+
 t2 = R[R.test == 'T2'].copy(); t2['pnl'] = t2.real - COST
 if len(t2):
     up, dn = t2[t2.pred > 0].pnl, t2[t2.pred <= 0].pnl

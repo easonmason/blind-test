@@ -1,6 +1,9 @@
 name: kronos-eval
 on:
   workflow_dispatch:
+    inputs:
+      seed: {default: '7'}
+      n: {default: '300'}
 permissions:
   contents: read
 jobs:
@@ -42,7 +45,7 @@ jobs:
               env.write(f'{key}={info.sha}\n')
           EOF
       - name: run
-        run: python3 tools/kronos_eval.py ${{ matrix.coin }} --kronos kronos_src --out kronos_out
+        run: python3 tools/kronos_eval.py ${{ matrix.coin }} --kronos kronos_src --out kronos_out --seed ${{ inputs.seed || 7 }} --n ${{ inputs.n || 300 }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -59,7 +62,7 @@ jobs:
           pattern: kronos-*
           path: kronos_out
           merge-multiple: true
-      - run: pip install -q pandas numpy && python3 tools/kronos_report.py kronos_out
+      - run: pip install -q pandas numpy && python3 tools/kronos_report.py kronos_out && cat kronos_out/*USDT.csv | grep -c . && for f in kronos_out/*USDT.csv; do sed "s|^|$(basename $f .csv),|" $f | grep ',T2,'; done
       - uses: actions/upload-artifact@v4
         with:
           name: kronos-summary

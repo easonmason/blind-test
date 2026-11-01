@@ -12,7 +12,7 @@ import numpy as np, pandas as pd
 
 ap = argparse.ArgumentParser()
 ap.add_argument('coin'); ap.add_argument('--dry', action='store_true'); ap.add_argument('--n', type=int, default=300)
-ap.add_argument('--kronos', default='kronos_src'); ap.add_argument('--out', default='kronos_out')
+ap.add_argument('--seed', type=int, default=7); ap.add_argument('--kronos', default='kronos_src'); ap.add_argument('--out', default='kronos_out')
 a = ap.parse_args()
 H0, H1 = pd.Timestamp('2025-01-01'), pd.Timestamp('2026-09-30 23:55')
 LB, PL, COST, BS = 240, 12, 0.001, 25
@@ -41,7 +41,7 @@ if os.path.exists(mf):
 rng = np.random.default_rng(sum(map(ord, a.coin)) * 7919)
 pool = np.where((idx >= H0) & (idx <= H1) & (idx.hour < 12))[0]
 pool = pool[(pool > LB) & (pool + PL + 1 < len(p))]
-rnd = np.sort(rng.choice(pool, size=a.n, replace=False))
+rnd = np.sort(rng.choice(pool, size=a.n, replace=False)) if a.n else np.array([], dtype=int)
 
 jobs = [('T1', int(i)) for i in rnd] + [('T2', int(i)) for i in sig if i + PL + 1 < len(p)]
 print(a.coin, 'T1', len(rnd), 'T2', len(jobs) - len(rnd), flush=True)
@@ -50,7 +50,7 @@ if not a.dry:
     sys.path.insert(0, a.kronos)
     import torch
     from model import Kronos, KronosTokenizer, KronosPredictor
-    torch.manual_seed(7); torch.set_num_threads(os.cpu_count())
+    torch.manual_seed(a.seed); torch.set_num_threads(os.cpu_count())
     tok = KronosTokenizer.from_pretrained('NeoQuasar/Kronos-Tokenizer-base', revision=os.environ.get('TOK_REV'))
     mdl = Kronos.from_pretrained('NeoQuasar/Kronos-small', revision=os.environ.get('MDL_REV'))
     pr = KronosPredictor(mdl, tok, device='cpu', max_context=512)
