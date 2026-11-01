@@ -4,7 +4,10 @@ import os, sys, pandas as pd, numpy as np
 sys.path.insert(0, os.path.dirname(__file__))
 import kronos_lib as K
 
-T = pd.read_csv('paper/trades.csv')
+try:
+    T = pd.read_csv('paper/trades.csv')
+except pd.errors.EmptyDataError:
+    sys.exit(0)   # 尚無訊號
 pr = K.load(sys.argv[1] if len(sys.argv) > 1 else 'kronos_src')
 pred = {}
 for c, g in T.groupby('幣'):
