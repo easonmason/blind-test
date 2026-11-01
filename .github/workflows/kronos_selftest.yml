@@ -1,0 +1,21 @@
+name: kronos-selftest
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git fetch --depth 1 origin data
+          git checkout origin/data -- klines paper
+          git clone -q https://github.com/shiyu-coder/Kronos tools/Kronos && git -C tools/Kronos checkout -q 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q einops==0.8.1 huggingface_hub==0.33.1 safetensors==0.6.2 pandas==2.2.2 tqdm==4.67.1
+      - name: check script (offline, at a known signal)
+        run: |
+          time python3 tools/kronos_check.py ETH --csv klines/ETHUSDT_5m.csv.gz --at '2026-10-20 03:00'
+      - name: paper annotate
+        run: python3 tools/paper_kronos.py tools/Kronos && head -5 paper/trades.csv && cat paper/summary.md
