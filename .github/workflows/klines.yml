@@ -13,6 +13,14 @@ jobs:
       - run: python3 tools/fetch_klines.py BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,LTCUSDT 2021-01
       - run: python3 tools/fetch_metrics.py BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,LTCUSDT 2021-12-01
       - run: pip install pandas numpy -q && python3 tools/paper.py
+      - name: annotate paper trades with Kronos opinion (record only)
+        continue-on-error: true
+        run: |
+          git clone -q https://github.com/shiyu-coder/Kronos tools/Kronos && git -C tools/Kronos checkout -q 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q einops==0.8.1 huggingface_hub==0.33.1 safetensors==0.6.2 pandas==2.2.2 tqdm==4.67.1
+          cp paper/trades.csv /tmp/trades_bak.csv; cp paper/summary.md /tmp/summary_bak.md
+          python3 tools/paper_kronos.py tools/Kronos || { cp /tmp/trades_bak.csv paper/trades.csv; cp /tmp/summary_bak.md paper/summary.md; exit 1; }
       - name: push to data branch
         run: |
           git config user.name bot; git config user.email bot@users.noreply.github.com
